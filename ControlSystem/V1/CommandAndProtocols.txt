@@ -1,0 +1,38 @@
+Protocols:
+    Shard-Server -> Used shards to scream at servers and for servers to listen on
+    Server-Mainframe -> Used for the servers to talk to the Mainframe and vice versa
+    Command-Mainframe -> Used to talk between the Mainframe and Command Centre and vice versa
+
+Command Structure (These will be parsed as strings):
+    0 - Info
+        Command|Information|RouteTaken(Shard->Server->Mainframe)
+        0|{Table}|3/1
+        Used to push info to the Mainframe
+
+    1 - Command
+        Command|RawLua|Destination(Command->Mainframe->Server)
+        1|print("Hello Mum!")|7
+        Used to execute local code if needed. We don't need to specify Command or Mainframe Id as they are static
+        This will also probably return the run result. Invalid code will cause a sever reboot to avoid issues.
+
+    2 - Script
+        Command|ScriptName|Destination(Command->Mainframe->Server)
+        2|Lockdown|7
+        Used to run a local script by name.
+        This will also probably return the run result. Invalid script name will just be ignored.
+
+    3 - Ping
+        Command|PingMessage
+        3|"Shard 3 is online!"
+        This is simply used to make sure that we are able to send messages from devices.
+        Good for error detection. Otherwise ignored.
+
+    4 - GetStatus
+        Command|Destination
+        4|7
+        I haven't quite decided on this yet. Ideally it will either ask if the Server is on - leading to a return, or ask for it to check all inputs now.
+
+    5 - CommandResult
+        Command|result
+        5|"Command run sucessfully!"
+        This is used to report something back that isn't redstone input. Examples include returning command 1,2 or 4.
