@@ -1,8 +1,28 @@
 
--- VARS
-serverId = 0
-debug = false
-log_name = "Shard.log"
+-- Can't actually log this because this is done before log init
+function getConfig()
+    local configName = "Shard.ini"
+    local configBool = fs.exists(configName)
+    if configBool then
+        local configFile = fs.open(configName,"r")
+        local configRaw = configFile.readAll()
+        local config = textutils.unserialiseJSON(configRaw)
+        configFile.close()
+        return config
+    else
+        local configRaw = {
+            serverId = 5,
+            log_name = "Shard.log",
+            debug = false,
+            protocol = "Shard"
+        }
+        local configFile = fs.open(configName,"w")
+        local config = textutils.serialiseJSON(configRaw)
+        configFile.write(config)
+        configFile.close()
+        return configRaw
+    end
+end
 
 -- Literally a Generic func to make sure rednet is on
 function setModem()
@@ -12,10 +32,12 @@ function setModem()
     if not modemOpen then
         peripheral.find("modem",rednet.open)
         log("Modem opened.","INFO")
+        reportStatus()
         return true
 
     elseif modemOpen then
         log("Modem was already open!","WARN")
+        reportStatus()
         return true
 
     else
@@ -23,22 +45,55 @@ function setModem()
     end
 end
 
+-- Basically a test to make sure we can send pings to the server
+-- This is UDP so we don't know if the server recieves
+function reportStatus()
+    local sendBool = rednet.send(config.serverId, "Shard is now online!", config.protocol)
+    log("Sending shard ping!", "INFO")
+    if not sendBool then
+        log("Unknown Error sending shard ping!", "ERROR")
+        error("Unable to send shard ping!")
+        printError("TERMINATING")
+        shell.exit()
+    end
+end
+
+function sendReport(inputTable)
+    local text = textutils.serialiseJSON(inputTable)
+    local sendBool = rednet.send(config.serverId,"0|"..text.."|"..os.getComputerID(),config.protocol)
+    log("Sending shard report0!", "INFO")
+    if not sendBool then -- If this doesn't work maybe panic basically
+        log("Unknown Error sending shard report!", "ERROR")
+        error("Unable to send shard ping!")
+        printError("Attempting to reconfigure modem!")
+        -- Hoping a reset will work else it'll die
+        setModem()
+        reportStatus()
+    end
+end
+
 -- Turns out I debug recursive tables lots.. joy
-function printTable(table)
+function printTable(table, doPrint)
     for k,v in pairs(table) do
         if type(v) == "table" then
             log(k.." "..type(v))
             printTable(v)
         elseif type(v) == "string" then
-            print(k,v)
+            if doPrint ~= nil and doPrint then
+                print(k,v)
+            end
             log(k.." "..v)
         else
-            print(k,v)
+            if doPrint ~= nil and doPrint then
+                print(k,v)
+            end
             log(k.." "..type(v))
         end
     end
 end
 
+-- So discovered I don't actually need this because we can already serialise
+-- But I like it so it stays >:)
 function compileTable(table)
     local index = 1
     local holder = "{"
@@ -64,31 +119,20 @@ function compileTable(table)
     end
     return holder.."}"
  end
- 
-function tableToString(tab)
-    local serializedValues = {}
-    local value, serializedValue
-    for i=1,#tab do
-      value = tab[i]
-      serializedValue = type(value)=='table' and serialize(value) or value
-      table.insert(serializedValues, serializedValue)
-    end
-    local out = string.format("{ %s }", table.concat(serializedValues, ', ') )
-    log(out,"INFO")
-    return out
-end
 
 -- No idea how but turns out this can fail sometimes
 function initLog()
-    local file = fs.open(log_name, "w")
+    local file = fs.open(config.log_name, "w")
     if file == nil or type(file) == "string" then
         printError("Error initialising log!")
         if type(file) == "string" then
-            printError("Traceback: "..file)
+            error("Traceback: "..file)
         end
+        printError("TERMINATING")
         shell.exit()
     else
         file.close()
+        log("Logging Started!","INFO")
     end
 end
 
@@ -100,8 +144,8 @@ end
 -- Warn being something already set or other oddities eg.. Things being configured correctly? Like modems
 -- Error being.. well an error something wrong eg.. Looks wrong to have nothing here :3
 function log(text, level)
-    local file = fs.open(log_name,"a")
-    if (level == nil or level == "DEBUG") and debug then
+    local file = fs.open(config.log_name,"a")
+    if (level == nil or level == "DEBUG") and config.debug then
         file.write(os.date("%F - %T").." || ".."DEBUG".." >> "..text.."\n")
     elseif level ~= nil then
         file.write(os.date("%F - %T").." || "..level.." >> "..text.."\n")
@@ -127,10 +171,12 @@ function getInputs()
         obj.binary = dump_b16_2(obj.input) -- Returns our TABLE of binary
     end
 
-    if debug then
-        printTable(cables)
+    printTable(cables)
+    if config.debug then
         print(compileTable(cables))
     end
+
+    return cables
 end
 
 -- Turns decimal to binary
@@ -184,15 +230,19 @@ end
 -- Big spooky main init point
 function main()
 
+    _G.config = getConfig()
+
     initLog()
 
     setModem()
     
     while true do
         if os.pullEvent("redstone") == "redstone" then 
-            getInputs()
+            local cableInputs = getInputs()
+            sendReport(cableInputs)
         end
     end
 end
+
 
 main()
