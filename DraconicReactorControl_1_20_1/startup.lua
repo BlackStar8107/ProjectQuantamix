@@ -108,8 +108,8 @@ function find_peripheral(find_type)
 end
 
 function write_text(text)
-    local x,y = term.getCursorPos()
-    term.setCursorPos(1,y+1)
+    --local x,y = term.getCursorPos()
+    --term.setCursorPos(1,y+1)
     term.write("CDRC > " .. text)
 end
 
@@ -213,19 +213,27 @@ end
 function running()
     reactor.activateReactor()
     term.clear()
-    term.setCursorPos(1,1)
     while check_state() do
         local reactorInfo = get_reactor_info()
-        term.setCursorPos(1,1)
+        
 
         calc_output() -- This should keep the reactor at a constant saturation rate
         calc_shield()
         --input_gate.setFlowOverride(calc_shield()) -- Works out shield cost to meet / remain at target
-        progress_bar( (reactorInfo.fieldStrength / reactorInfo.maxFieldStrength) * 10 , "Containment Strength - "..reactorInfo.fieldStrength)
-        newline()
-        progress_bar( (reactorInfo.temperature / TEMP_TARGET) * 10, "Temperature - "..reactorInfo.temperature)
-        newline()
-        write_text("Generating :"..tostring(reactorInfo.generationRate - reactorInfo.fieldDrainRate).." RF/t")
+        
+
+        term.setCursorPos(1,1)
+        term.clearLine()
+        term.setCursorPos(1,1)
+        progress_bar( (reactorInfo.temperature / TEMP_TARGET) * 10, "Temperature: "..reactorInfo.temperature)
+        term.setCursorPos(1,2)
+        term.clearLine()
+        term.setCursorPos(1,2)
+        write_text("Generating: "..tostring(reactorInfo.generationRate - reactorInfo.fieldDrainRate).." RF/t")
+        term.setCursorPos(1,3)
+        term.clearLine()
+        term.setCursorPos(1,3)
+        progress_bar( (reactorInfo.fieldStrength / reactorInfo.maxFieldStrength) * 10 , "Containment Strength: "..reactorInfo.fieldStrength)
 
         if (reactorInfo.fuelConversion / reactorInfo.maxFuelConversion) * 100 > 90 then
             reactor.stopReactor()
@@ -272,6 +280,9 @@ end
 
 function calc_output()
     local reactorInfo = get_reactor_info()
+    term.setCursorPos(1,4)
+    term.clearLine()
+    term.setCursorPos(1,4)
 
     if reactorInfo.temperature < TEMP_TARGET and (reactorInfo.energySaturation / reactorInfo.maxEnergySaturation) * 100  > 10 then -- Temp is colder than we want
         -- Bigger value better
@@ -280,6 +291,7 @@ function calc_output()
         --local change_val = (reactorInfo.generationRate * 1.1) + reactorInfo.fieldDrainRate
         local temp_error = ( (TEMP_TARGET - reactorInfo.temperature) / ( (TEMP_TARGET + reactorInfo.temperature) / 2 ) ) * 5 + 1
         local change_val = (reactorInfo.generationRate + reactorInfo.fieldDrainRate) * temp_error
+        write_text("Saturation NOMINAL")
         output_gate.setFlowOverride(change_val)
 
     elseif (reactorInfo.energySaturation / reactorInfo.maxEnergySaturation) * 100 <= 10 then
@@ -293,6 +305,7 @@ function calc_output()
         --local change_val = reactorInfo.generationRate * .9 + reactorInfo.fieldDrainRate
         local temp_error = ( (TEMP_TARGET - reactorInfo.temperature) / ( (TEMP_TARGET + reactorInfo.temperature) / 2 ) ) * 5 + 1
         local change_val = (reactorInfo.generationRate + reactorInfo.fieldDrainRate) * temp_error
+        write_text("Saturation NOMINAL")
         output_gate.setFlowOverride(change_val)
     else
         output_gate.setFlowOverride(reactorInfo.generationRate + reactorInfo.fieldDrainRate)
@@ -308,7 +321,6 @@ function shutdown()
     input_gate.setFlowOverride(reactorInfo.fieldDrainRate * 2)
     output_gate.setFlowOverride(0)
     newline()
-    local x,y = term.getCursorPos()
     local current_temp = reactorInfo.temperature
     while reactorInfo.status == "stopping" do
         reactorInfo = get_reactor_info()
@@ -323,10 +335,9 @@ function shutdown()
             local drain_error = ( ( (reactorInfo.maxEnergySaturation*.75) - reactorInfo.energySaturation ) / ( ( (reactorInfo.maxEnergySaturation*.75) + reactorInfo.energySaturation ) / 2 ) ) + 1
             output_gate.setFlowOverride( (reactorInfo.generationRate + reactorInfo.fieldDrainRate) * drain_error )
         end
-        term.setCursorPos(1,y)
+        term.setCursorPos(1,2)
         progress_bar( (reactorInfo.temperature / current_temp) * 10, "Cooling Progress - "..tostring(reactorInfo.temperature) )
-        newline()
-        term.setCursorPos(1,y+1)
+        term.setCursorPos(1,3)
         progress_bar( (reactorInfo.fieldStrength / 50000000) * 10, "Containment Strength - "..tostring(reactorInfo.fieldStrength) )
         wait_tick(1)
     end
