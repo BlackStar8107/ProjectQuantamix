@@ -1,0 +1,31 @@
+Reactor Default Name: draconic_reactor_0
+Methods:
+	stopReactor
+	toggleFailSafe
+	activateReactor
+	getReactorInfo
+		energySaturation
+		failSafe
+		fieldDrainRate
+		fieldStrength
+		fuelConversion
+		fuelConversionRate
+		generationRate
+		maxEnergySaturation
+		maxFieldStrength
+		maxFuelConversion
+		status
+		temperature
+	chargeReactor
+	
+Flux Gate Default Name: flow_gate_0
+Methods:
+	getOverrideEnabled
+	setFlowOverride
+	setSignalHighFlow
+	setOverrideEnabled
+	getSignalHighFlow
+	setSignalLowFlow
+	getFlow
+	getSignalLowFlow
+	
